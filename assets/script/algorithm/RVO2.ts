@@ -8,8 +8,8 @@
 import { KdTree } from '../dataStructure/KdTree';
 
 export class Line {
-    public point: cc.Vec2
-    public direction: cc.Vec2
+    public point: cc.Vec3
+    public direction: cc.Vec3
 }
 
 export class Agent {
@@ -19,24 +19,25 @@ export class Agent {
     public weight: number
 
     public pos: Array<number>
-    public position: cc.Vec2
-    public targetPos: cc.Vec2
+    public targetPos: cc.Vec3
 
-    public velocity: cc.Vec2
-    public prefVelocity: cc.Vec2
+    public velocity: cc.Vec3 = cc.v3(0, 0, 0)
+    public prefVelocity: cc.Vec3 = cc.v3(0, 0, 0)
 
-    constructor(pos: cc.Vec2) {
-        this.id = Simulator.agents.push(this)
+    public node: cc.Node
 
-        this.pos = [pos.x, pos.y]
-        this.position = pos
+    constructor(node: cc.Node) {
+        this.id = Simulator.agents.push(this) - 1
+        Simulator.agentId2Agent.set(this.id, this)
 
-        this.radius = 5
+        this.pos = [node.position.x, node.position.y]
+        this.targetPos = node.position
+
+        this.radius = 35
         this.weight = 0.5
-
-        this.velocity = cc.v2(0, 0)
-        this.prefVelocity = cc.v2(0, 0)
+        this.node = node
     }
+
 
     public calcNewVelocity() {
 
@@ -46,8 +47,8 @@ export class Agent {
 
             const otherAgent = neighbor.data
 
-            const relativePosition = otherAgent.position.sub(this.position)
-            const relativeVelocity = this.velocity.sub(otherAgent.velocity)
+            const relativePosition = otherAgent.node.position.sub(this.node.position)
+            const relativeVelocity = this.prefVelocity.sub(otherAgent.prefVelocity)
 
             const distSq = relativePosition.mag() ** 2
             const combinedRadius = this.radius + otherAgent.radius
@@ -55,8 +56,9 @@ export class Agent {
 
             const invTimestep = 1 / Simulator.deltTime
 
+            let u: cc.Vec3
             const line = new Line()
-            let u: cc.Vec2
+
 
             if (distSq > combinedRadiusSq) {
                 // 未碰撞
@@ -64,13 +66,22 @@ export class Agent {
                 // 已碰撞
                 const w = relativeVelocity.sub(relativePosition.mul(invTimestep))
                 u = w.normalize().mul(combinedRadius * invTimestep - w.mag())
-                line.direction = cc.v2(w.normalize().y, -w.normalize().x)
+                line.direction = cc.v3(w.normalize().y, -w.normalize().x, 0)
             }
 
-            line.point = this.velocity.add(u)
-            console.log(line)
+            // line.point = this.velocity.add(u)
         }
-        console.log(this, neighbors)
+
+        this.velocity = this.prefVelocity
+    }
+
+    public calcPrefVelocity() {
+        if (this.targetPos.sub(this.node.position).mag() == 0) return this.prefVelocity = cc.v3(0, 0, 0)
+
+        let prefVelocity = this.targetPos.sub(this.node.position)
+        if (prefVelocity.mag() > 1) prefVelocity = prefVelocity.normalize()
+
+        this.prefVelocity = prefVelocity
     }
 }
 
@@ -78,6 +89,8 @@ export class Simulator {
 
     static agents: Array<Agent> = []
     static agentsTree: KdTree<Agent> = null
+    static agentId2Agent: Map<number, Agent> = new Map()
+
     static deltTime: number = 0
 
     static execute(dt: number): void {
@@ -86,18 +99,29 @@ export class Simulator {
         this.deltTime = dt
 
         // 重新构建KdTree
-        this.agentsTree = KdTree.build(this.agents)
+        this.agentsTree = KdTree.build([].concat(this.agents))
+
+        // 更新期望速度
+        this.agents.forEach(agent => agent.calcPrefVelocity())
 
         // 更新避障后的速度
         this.agents.forEach(agent => agent.calcNewVelocity())
+
+        // 更新新速度确定后的位置
+        this.agents.forEach(agent => { agent.node.position = agent.node.position.add(agent.velocity) })
     }
 
-    static addAgent(pos: cc.Vec2): Agent {
-        return new Agent(pos)
+    static addAgent(node: cc.Node): Agent {
+        return new Agent(node)
     }
 
     static getAgent(id: number): Agent {
         return this.agents[id]
+    }
+
+    static setAgentTargetPos(id: number, targetPos: cc.Vec3): void {
+        const agent = this.getAgent(id)
+        agent.targetPos = targetPos
     }
 
 }
