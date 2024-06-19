@@ -13,6 +13,7 @@ export class Line {
 }
 
 export class Agent {
+    public node: cc.Node
 
     public id: number
     public radius: number
@@ -24,26 +25,30 @@ export class Agent {
     public velocity: cc.Vec3 = cc.v3(0, 0, 0)
     public prefVelocity: cc.Vec3 = cc.v3(0, 0, 0)
 
-    public node: cc.Node
+    public orcaLines: Array<Line> = []
 
     constructor(node: cc.Node) {
         this.id = Simulator.agents.push(this) - 1
         Simulator.agentId2Agent.set(this.id, this)
 
         this.pos = [node.position.x, node.position.y]
-        this.targetPos = node.position
+        this.targetPos = node.position.clone()
 
-        this.radius = 35
+        this.radius = 70
         this.weight = 0.5
         this.node = node
     }
 
 
     public calcNewVelocity() {
+        this.orcaLines = []
 
         const neighbors = Simulator.agentsTree.searchNeiborRadius(this.pos, this.radius)
 
         for (const neighbor of neighbors) {
+
+            // 过滤自身
+            if (neighbor.data.id === this.id) continue
 
             const otherAgent = neighbor.data
 
@@ -64,12 +69,25 @@ export class Agent {
                 // 未碰撞
             } else {
                 // 已碰撞
+
+                // w:小圆圆心到相对速度点向量 u:相对速度点到小圆圆周上向量
                 const w = relativeVelocity.sub(relativePosition.mul(invTimestep))
+                const wUni = w.normalize()
+                const wLen = w.mag()
+
+                console.log(wUni.mul(combinedRadius * invTimestep).sub(w))
+
+
+
+
                 u = w.normalize().mul(combinedRadius * invTimestep - w.mag())
+                line.point = this.velocity.add(u.mul(this.weight))
                 line.direction = cc.v3(w.normalize().y, -w.normalize().x, 0)
+                console.log(u)
+                // console.log(`已碰撞:${this.id}=>${neighbor.data.id}`)
             }
 
-            // line.point = this.velocity.add(u)
+            this.orcaLines.push(line)
         }
 
         this.velocity = this.prefVelocity
@@ -108,7 +126,10 @@ export class Simulator {
         this.agents.forEach(agent => agent.calcNewVelocity())
 
         // 更新新速度确定后的位置
-        this.agents.forEach(agent => { agent.node.position = agent.node.position.add(agent.velocity) })
+        this.agents.forEach(agent => {
+            agent.node.position = agent.node.position.add(agent.velocity)
+            agent.pos = [agent.node.position.x, agent.node.position.y]
+        })
     }
 
     static addAgent(node: cc.Node): Agent {

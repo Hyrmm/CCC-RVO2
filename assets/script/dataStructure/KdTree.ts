@@ -110,7 +110,7 @@ export class KdTree<T extends { pos: Pos }> {
             const current: KdTree<T> = stack.pop()
             const currentDistance = KdTree.distance(pos, current.data.pos)
 
-            if (currentDistance <= radius && currentDistance != 0) {
+            if (currentDistance <= radius) {
                 if (maxHeap.size >= 10) maxHeap.pop()
                 maxHeap.push({ value: currentDistance, data: current.data })
             }

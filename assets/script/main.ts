@@ -33,6 +33,7 @@ export default class Main extends cc.Component {
 
             agentNode.color = cc.Color.RED
             agentNode.name = `r_${agent.id}`
+            agentNode.getComponentInChildren(cc.Label).string = `${agent.id}`
             this.node.addChild(agentNode)
         }
 
@@ -48,6 +49,7 @@ export default class Main extends cc.Component {
 
             agentNode.color = cc.Color.BLUE
             agentNode.name = `b_${agent.id}`
+            agentNode.getComponentInChildren(cc.Label).string = `${agent.id}`
 
             this.node.addChild(agentNode)
         }
