@@ -34,7 +34,7 @@ export class Agent {
         this.pos = [node.position.x, node.position.y]
         this.targetPos = node.position.clone()
 
-        this.radius = 70
+        this.radius = 30
         this.weight = 0.5
         this.node = node
     }
@@ -43,7 +43,7 @@ export class Agent {
     public calcNewVelocity() {
         this.orcaLines = []
 
-        const neighbors = Simulator.agentsTree.searchNeiborRadius(this.pos, this.radius)
+        const neighbors = Simulator.agentsTree.searchNeiborRadius(this.pos, 100)
 
         for (const neighbor of neighbors) {
 
@@ -66,24 +66,17 @@ export class Agent {
 
 
             if (distSq > combinedRadiusSq) {
-                // 未碰撞
+                // 未碰撞 
             } else {
-                // 已碰撞
-
-                // w:小圆圆心到相对速度点向量 u:相对速度点到小圆圆周上向量
+                // 将碰撞
                 const w = relativeVelocity.sub(relativePosition.mul(invTimestep))
-                const wUni = w.normalize()
-                const wLen = w.mag()
-
-                console.log(wUni.mul(combinedRadius * invTimestep).sub(w))
-
-
-
-
                 u = w.normalize().mul(combinedRadius * invTimestep - w.mag())
+
                 line.point = this.velocity.add(u.mul(this.weight))
                 line.direction = cc.v3(w.normalize().y, -w.normalize().x, 0)
-                console.log(u)
+
+                this.prefVelocity = this.prefVelocity.add(u.mul(this.weight))
+                // this.prefVelocity = this.prefVelocity.normalize()
                 // console.log(`已碰撞:${this.id}=>${neighbor.data.id}`)
             }
 
@@ -99,7 +92,7 @@ export class Agent {
         let prefVelocity = this.targetPos.sub(this.node.position)
         if (prefVelocity.mag() > 1) prefVelocity = prefVelocity.normalize()
 
-        this.prefVelocity = prefVelocity
+        this.prefVelocity = prefVelocity.mul(5)
     }
 }
 
@@ -114,7 +107,7 @@ export class Simulator {
     static execute(dt: number): void {
 
         // 更新帧时间
-        this.deltTime = dt
+        this.deltTime = dt * 1000
 
         // 重新构建KdTree
         this.agentsTree = KdTree.build([].concat(this.agents))
