@@ -2,10 +2,11 @@
  * @Author: hyrm 
  * @Date: 2024-05-21 09:44:10 
  * @Last Modified by: hyrm
- * @Last Modified time: 2024-06-14 14:52:05
+ * @Last Modified time: 2024-06-25 16:49:46
  */
 
 import { KdTree } from '../dataStructure/KdTree';
+import Utils from '../utils/Utils';
 
 export class Line {
     public point: cc.Vec3
@@ -67,18 +68,36 @@ export class Agent {
 
             if (distSq > combinedRadiusSq) {
                 // 未碰撞 
+                // 根据 w 在 relativePosition 方向的投影，分类讨论计算 u
+                // 在下半小圆内，直接修正到最近的圆上；在上半小圆内，修正到最近的障碍域的脚上
+                const w = relativeVelocity.sub(relativePosition.mul(invTimestep))
+                const dot = w.dot(relativePosition)
+                const leg = Math.sqrt(distSq - combinedRadiusSq)
+                if (dot < 0 && dot ** 2 > combinedRadiusSq * (w.mag() ** 2)) {
+                    u = w.normalize().mul(combinedRadius * invTimestep - w.mag())
+                } else {
+
+                    if (Utils.det(relativePosition, w) > 0) {
+                        // 靠近左腿
+                        line.direction = cc.v3(relativePosition.x * leg - relativePosition.y * combinedRadius, relativePosition.x * combinedRadius + relativePosition.y * leg, 0).div(distSq)
+                    } else {
+                        // 靠近右腿
+                        line.direction = cc.v3(relativePosition.x * leg - relativePosition.y * combinedRadius, -relativePosition.x * combinedRadius + relativePosition.y * leg, 0).div(distSq).neg()
+                    }
+
+                    const dotProduct2 = relativeVelocity.dot(line.direction)
+                    u = line.direction.mul(dotProduct2).sub(relativeVelocity)
+                }
             } else {
-                // 将碰撞
+                // 已碰撞
                 const w = relativeVelocity.sub(relativePosition.mul(invTimestep))
                 u = w.normalize().mul(combinedRadius * invTimestep - w.mag())
-
-                line.point = this.velocity.add(u.mul(this.weight))
-                line.direction = cc.v3(w.normalize().y, -w.normalize().x, 0)
-
-                this.prefVelocity = this.prefVelocity.add(u.mul(this.weight))
+                // line.point = this.velocity.add(u.mul(this.weight))
+                // line.direction = cc.v3(w.normalize().y, -w.normalize().x, 0)
                 // this.prefVelocity = this.prefVelocity.normalize()
                 // console.log(`已碰撞:${this.id}=>${neighbor.data.id}`)
             }
+            this.prefVelocity = this.prefVelocity.add(u.mul(this.weight))
 
             this.orcaLines.push(line)
         }
@@ -92,7 +111,7 @@ export class Agent {
         let prefVelocity = this.targetPos.sub(this.node.position)
         if (prefVelocity.mag() > 1) prefVelocity = prefVelocity.normalize()
 
-        this.prefVelocity = prefVelocity.mul(5)
+        this.prefVelocity = prefVelocity
     }
 }
 
@@ -105,6 +124,7 @@ export class Simulator {
     static deltTime: number = 0
 
     static execute(dt: number): void {
+        if (!dt) return
 
         // 更新帧时间
         this.deltTime = dt * 1000
