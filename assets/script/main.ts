@@ -8,6 +8,11 @@ export default class Main extends cc.Component {
     @property(cc.Prefab)
     prefeb_agent: cc.Prefab = null
 
+    @property(cc.Node)
+    container_agents: cc.Node = null
+
+    @property(cc.Node)
+    container_graphics: cc.Node = null
 
     protected start(): void {
 
@@ -22,7 +27,7 @@ export default class Main extends cc.Component {
     private initAgents(): void {
 
         // red agent
-        for (let i = 0; i < 1; i++) {
+        for (let i = 0; i < 10; i++) {
 
             const randomX = Math.random() * 1920
             const randomY = Math.random() * 1080
@@ -34,11 +39,11 @@ export default class Main extends cc.Component {
             agentNode.color = cc.Color.RED
             agentNode.name = `r_${agent.id}`
             agentNode.getComponentInChildren(cc.Label).string = `${agent.id}`
-            this.node.addChild(agentNode)
+            this.container_agents.addChild(agentNode)
         }
 
         // blue agent
-        for (let i = 0; i < 1; i++) {
+        for (let i = 0; i < 10; i++) {
 
             const randomX = Math.random() * 1920
             const randomY = Math.random() * 1080
@@ -50,19 +55,18 @@ export default class Main extends cc.Component {
             agentNode.color = cc.Color.BLUE
             agentNode.name = `b_${agent.id}`
             agentNode.getComponentInChildren(cc.Label).string = `${agent.id}`
-
-            this.node.addChild(agentNode)
+            this.container_agents.addChild(agentNode)
         }
 
     }
 
     private initEventListeners(): void {
-        this.node.on(cc.Node.EventType.MOUSE_DOWN, this.onMouseDown, this)
+        this.container_agents.on(cc.Node.EventType.MOUSE_DOWN, this.onMouseDown, this)
     }
 
     private onMouseDown(event: cc.Event.EventMouse): void {
 
-        const targetPos = this.node.convertToNodeSpaceAR(event.getLocation())
+        const targetPos = this.container_agents.convertToNodeSpaceAR(event.getLocation())
 
         let filterAgents: Array<Agent> = []
 
