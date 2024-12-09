@@ -35,7 +35,7 @@ export class Agent {
         this.pos = [node.position.x, node.position.y]
         this.targetPos = node.position.clone()
 
-        this.radius = 30
+        this.radius = 50
         this.weight = 0.5
         this.node = node
     }
@@ -60,14 +60,17 @@ export class Agent {
             const combinedRadius = this.radius + otherAgent.radius
             const combinedRadiusSq = combinedRadius ** 2
 
-            const invTimestep = 1 / Simulator.deltTime * 5
+            const invTimestep = 1 / Simulator.deltTime
+            const invTimeHorizon = 1 / 9
 
             let u: cc.Vec3
-            const w = relativeVelocity.sub(relativePosition.mul(invTimestep))
+
             const line = new Line()
 
-            if (distSq > combinedRadiusSq) {
+            // 这里判断碰撞是预估值，比较俩个检测半径相和和距离
 
+            if (distSq > combinedRadiusSq) {
+                const w = relativeVelocity.sub(relativePosition.mul(invTimeHorizon))
                 // 未碰撞 
                 const dot = w.dot(relativePosition)
                 const leg = Math.sqrt(distSq - combinedRadiusSq)
@@ -93,10 +96,11 @@ export class Agent {
             } else {
 
                 // 已碰撞
+                const w = relativeVelocity.sub(relativePosition.mul(invTimestep))
                 u = w.normalize().mul(combinedRadius * invTimestep - w.mag())
                 line.direction = cc.v3(w.normalize().y, -w.normalize().x, 0)
             }
-            
+
             line.point = this.velocity.add(u.mul(this.weight))
             this.prefVelocity = this.prefVelocity.add(u.mul(this.weight))
             this.orcaLines.push(line)
@@ -109,7 +113,7 @@ export class Agent {
         if (this.targetPos.sub(this.node.position).mag() == 0) return this.prefVelocity = cc.v3(0, 0, 0)
 
         let prefVelocity = this.targetPos.sub(this.node.position)
-        if (prefVelocity.mag() > 1) prefVelocity = prefVelocity.normalize()
+        if (prefVelocity.mag() > 1) prefVelocity = prefVelocity.normalize().mul(1 / Simulator.deltTime * 2)
 
         this.prefVelocity = prefVelocity
     }
