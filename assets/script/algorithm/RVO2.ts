@@ -35,16 +35,21 @@ export class Agent {
         this.pos = [node.position.x, node.position.y]
         this.targetPos = node.position.clone()
 
-        this.radius = 50
+        this.radius = 25
         this.weight = 0.5
         this.node = node
+        this.velocity = cc.v3(0, 0, 0)
     }
 
 
     public calcNewVelocity() {
         this.orcaLines = []
 
-        const neighbors = Simulator.agentsTree.searchNeiborRadius(this.pos, 100)
+        let newVelocity = this.prefVelocity.clone()
+        const neighbors = Simulator.agentsTree.searchNeiborRadius(this.pos, 50)
+
+        const invTimestep = 1 / Simulator.deltTime
+        const invTimeHorizon = 1 / (Simulator.deltTime + 7)
 
         for (const neighbor of neighbors) {
 
@@ -60,15 +65,12 @@ export class Agent {
             const combinedRadius = this.radius + otherAgent.radius
             const combinedRadiusSq = combinedRadius ** 2
 
-            const invTimestep = 1 / Simulator.deltTime
-            const invTimeHorizon = 1 / 9
+
 
             let u: cc.Vec3
-
             const line = new Line()
 
             // 这里判断碰撞是预估值，比较俩个检测半径相和和距离
-
             if (distSq > combinedRadiusSq) {
                 const w = relativeVelocity.sub(relativePosition.mul(invTimeHorizon))
                 // 未碰撞 
@@ -77,9 +79,8 @@ export class Agent {
 
                 if (dot < 0 && dot ** 2 > combinedRadiusSq * (w.mag() ** 2)) {
 
-                    u = w.normalize().mul(combinedRadius * invTimestep - w.mag())
+                    u = w.normalize().mul(combinedRadius * invTimeHorizon - w.mag())
                     line.direction = cc.v3(w.normalize().y, -w.normalize().x, 0)
-
                 } else {
 
                     if (Utils.det(relativePosition, w) > 0) {
@@ -93,6 +94,7 @@ export class Agent {
                     const dotProduct2 = relativeVelocity.dot(line.direction)
                     u = line.direction.mul(dotProduct2).sub(relativeVelocity)
                 }
+
             } else {
 
                 // 已碰撞
@@ -102,18 +104,19 @@ export class Agent {
             }
 
             line.point = this.velocity.add(u.mul(this.weight))
-            this.prefVelocity = this.prefVelocity.add(u.mul(this.weight))
+            newVelocity = this.prefVelocity.add(u.mul(this.weight))
             this.orcaLines.push(line)
         }
 
-        this.velocity = this.prefVelocity
+        this.velocity = newVelocity
+
+
     }
 
     public calcPrefVelocity() {
-        if (this.targetPos.sub(this.node.position).mag() == 0) return this.prefVelocity = cc.v3(0, 0, 0)
+        let prefVelocity = this.targetPos.sub(this.node.position).normalize()
 
-        let prefVelocity = this.targetPos.sub(this.node.position)
-        if (prefVelocity.mag() > 1) prefVelocity = prefVelocity.normalize().mul(1 / Simulator.deltTime * 2)
+        if (this.targetPos.sub(this.node.position).mag() <= 5) return this.prefVelocity = prefVelocity.mul(1 / Simulator.deltTime)
 
         this.prefVelocity = prefVelocity
     }
@@ -131,8 +134,7 @@ export class Simulator {
         if (!dt) return
 
         // 更新帧时间
-        this.deltTime = dt * 1000
-
+        this.deltTime = dt * 1000 / 6
         // 重新构建KdTree
         this.agentsTree = KdTree.build([].concat(this.agents))
 
@@ -144,7 +146,7 @@ export class Simulator {
 
         // 更新新速度确定后的位置
         this.agents.forEach(agent => {
-            agent.node.position = agent.node.position.add(agent.velocity)
+            agent.node.position = agent.node.position.add(agent.velocity.mul(this.deltTime))
             agent.pos = [agent.node.position.x, agent.node.position.y]
         })
     }
