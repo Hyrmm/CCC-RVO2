@@ -5,7 +5,7 @@ import { MaxHeap } from './Heap';
  * @Last Modified by: hyrm
  * @Last Modified time: 2024-06-13 11:36:16
  */
-export type Pos = Array<number>
+export type Pos = Array<number> | { x: number, y: number }
 
 
 export class KdTree<T extends { pos: Pos }> {
@@ -160,6 +160,8 @@ export class KdTree<T extends { pos: Pos }> {
      * @returns 
      */
     static distance(a: Pos, b: Pos): number {
+        if (!Array.isArray(a)) a = [a.x, a.y]
+        if (!Array.isArray(b)) b = [b.x, b.y]
         return Math.sqrt(a.reduce((acc, cur, index) => acc + (cur - b[index]) ** 2, 0))
     }
 
