@@ -43,10 +43,13 @@ export class Agent {
 
 
     public calcNewVelocity() {
-        this.orcaLines = []
 
-        let newVelocity = this.prefVelocity.clone()
+
+        this.orcaLines = []
         const neighbors = Simulator.agentsTree.searchNeiborRadius(this.pos, 50)
+
+        if (neighbors.length <= 1) return this.velocity = this.prefVelocity
+
 
         const invTimestep = 1 / Simulator.deltTime
         const invTimeHorizon = 1 / (Simulator.deltTime + 7)
@@ -104,13 +107,15 @@ export class Agent {
             }
 
             line.point = this.velocity.add(u.mul(this.weight))
-            newVelocity = this.prefVelocity.add(u.mul(this.weight))
             this.orcaLines.push(line)
         }
 
-        this.velocity = newVelocity
+        this.velocity = cc.v3(0, 0, 0)
+        const lineFail = this.linearProgram2(this.orcaLines, this.radius / 2, this.prefVelocity, false, this.velocity)
 
-
+        if (lineFail < this.orcaLines.length) {
+            this.linearProgram3(this.orcaLines, 0, lineFail, this.radius, this.velocity)
+        }
     }
 
     public calcPrefVelocity() {
@@ -119,6 +124,144 @@ export class Agent {
         if (this.targetPos.sub(this.node.position).mag() <= 5) return this.prefVelocity = prefVelocity.mul(1 / Simulator.deltTime)
 
         this.prefVelocity = prefVelocity
+    }
+
+    public linearProgram2(lines: Line[], radius: number, optVelocity: cc.Vec3, directionOpt: boolean, result: cc.Vec3): number {
+
+
+        if (directionOpt) {
+            result.set(optVelocity.mul(radius))
+        }
+        else if (Math.abs(optVelocity.mag()) ** 2 < radius ** 2) {
+            result.set(optVelocity.normalize().mul(radius))
+        }
+        else {
+            result.set(optVelocity)
+        }
+
+        for (const [index, line] of lines.entries()) {
+
+            if (Utils.det(line.direction, line.point.sub(result)) > 0) {
+                let tempResult = result.clone()
+                if (!this.linearProgram1(lines, index, radius, optVelocity, directionOpt, result)) {
+                    result.set(tempResult)
+                    return index
+                }
+            }
+        }
+
+        return lines.length
+    }
+
+    public linearProgram1(lines: Line[], index: number, radius: number, optVelocity: cc.Vec3, directionOpt: boolean, result: cc.Vec3): boolean {
+
+        const dotProduct = lines[index].point.dot(lines[index].direction)
+        const discriminant = dotProduct ** 2 + radius ** 2 - optVelocity.mag() ** 2
+
+        if (discriminant < 0) return false
+
+        const sqrtDiscriminant = Math.sqrt(discriminant)
+
+        let tLeft = -dotProduct - sqrtDiscriminant
+        let tRigt = -dotProduct + sqrtDiscriminant
+
+        for (let i = 0; i < index; i++) {
+            const denominator = Utils.det(lines[index].direction, lines[i].direction)
+            const numerator = Utils.det(lines[i].direction, lines[index].point.sub(lines[i].point))
+
+            if (Math.abs(denominator) < 0.00001) {
+                if (numerator < 0) return false
+                continue
+            }
+
+
+            const t = numerator / denominator
+
+            if (denominator > 0) {
+                tRigt = Math.min(tRigt, t)
+            } else {
+                tLeft = Math.max(tLeft, t)
+            }
+
+            if (tLeft > tRigt) return false
+
+
+        }
+
+
+        if (directionOpt) {
+
+            if (optVelocity.dot(lines[index].direction) > 0) {
+                result.set(lines[index].point.add(lines[index].direction.mul(tRigt)))
+            } else {
+                result.set(lines[index].point.add(lines[index].direction.mul(tLeft)))
+            }
+
+        } else {
+
+            const t = lines[index].direction.dot(optVelocity.sub(lines[index].point))
+
+            if (t < tLeft) {
+                result.set(lines[index].point.add(lines[index].direction.mul(tLeft)))
+            }
+            else if (t > tRigt) {
+                result.set(lines[index].point.add(lines[index].direction.mul(tRigt)))
+            }
+            else {
+                result.set(lines[index].point.add(lines[index].direction.mul(t)))
+            }
+
+        }
+
+        return true
+    }
+
+    public linearProgram3(lines: Line[], numObstLines: number, beginLine: number, radius: number, result: cc.Vec3): void {
+
+        let distance = 0
+
+        for (let i = beginLine; i < lines.length; i++) {
+            if (Utils.det(lines[i].direction, lines[i].point.sub(result)) > distance) {
+
+                const projLines = []
+
+                // for (let j = 0; j < numObstLines; j++) {
+                //     // projLines.push(lines[j])
+                // }
+                // 2.动态阻挡的orca线需要重新计算line，从第一个非静态阻挡到当前的orca线
+                for (let k = numObstLines; k < i; k++) {
+                    let line = new Line();
+
+                    let determinant = Utils.det(lines[i].direction, lines[k].direction)
+
+                    if (Math.abs(determinant) <= 0.00001) {
+
+                        if (lines[i].direction.dot(lines[k].direction) > 0.0) {
+                            continue
+                        }
+                        else {
+                            line.point = lines[i].point.add(lines[k].point).mul(0.5)
+                        }
+                    }
+                    else {
+
+                        const v1 = Utils.det(line[k].direction, line[i].point.sub(line[k].point)) / determinant
+                        line.point = lines[i].point.add(lines[i].direction.mul(v1))
+                    }
+
+                    line.direction = lines[k].direction.sub(lines[i].direction).normalize()
+                    projLines.push(line)
+                }
+
+                const tempResult = result.clone()
+                if (this.linearProgram2(projLines, radius, cc.v3(-lines[i].direction.y, lines[i].direction.x, 0), true, result) < projLines.length) {
+                    result.set(tempResult)
+                }
+                distance = Utils.det(lines[i].direction, lines[i].point.sub(result))
+            }
+
+
+        }
     }
 }
 

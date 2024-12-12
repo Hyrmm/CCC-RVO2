@@ -27,7 +27,7 @@ export default class Main extends cc.Component {
     private initAgents(): void {
 
         // red agent
-        for (let i = 0; i < 1; i++) {
+        for (let i = 0; i < 10; i++) {
 
             const randomX = Math.random() * 1920
             const randomY = Math.random() * 1080
@@ -43,7 +43,7 @@ export default class Main extends cc.Component {
         }
 
         // blue agent
-        for (let i = 0; i < 1; i++) {
+        for (let i = 0; i < 10; i++) {
 
             const randomX = Math.random() * 1920
             const randomY = Math.random() * 1080
