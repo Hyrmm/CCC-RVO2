@@ -28,12 +28,17 @@ export class KdTree<T extends { pos: Pos }> {
      * @returns 
      */
     public serach2Leaf(point: Pos): Array<KdTree<T>> {
+        if (!Array.isArray(point)) point = [point.x, point.y]
+
         const result: Array<KdTree<T>> = []
 
         let current: KdTree<T> | null = this
         while (current) {
             result.push(current)
-            if (point[current.axis] < current.data.pos[current.axis]) {
+            let currentPos = current.data.pos[current.axis]
+            if (!Array.isArray(current.data.pos)) currentPos = [current.data.pos.x, current.data.pos.y][current.axis]
+
+            if (point[current.axis] < currentPos) {
                 current = current.left
             } else {
                 current = current.right
@@ -51,6 +56,7 @@ export class KdTree<T extends { pos: Pos }> {
      * @returns 
      */
     public searchKNearest(point: Pos, k: number = 1, maxHeap?: MaxHeap<{ value: number, data: T }>): Array<{ value: number, data: T }> {
+        if (!Array.isArray(point)) point = [point.x, point.y]
 
         // 初始化大顶堆，类top-k算法，维护一个节点数为k的最大堆
         if (!maxHeap) {
@@ -99,6 +105,7 @@ export class KdTree<T extends { pos: Pos }> {
      * @returns 
      */
     public searchNeiborRadius(pos: Pos, radius: number, maxHeap?: MaxHeap<{ value: number, data: T }>): Array<{ value: number, data: T }> {
+        if (!Array.isArray(pos)) pos = [pos.x, pos.y]
 
         let stack: Array<KdTree<T>> = this.serach2Leaf(pos)
 
@@ -116,10 +123,13 @@ export class KdTree<T extends { pos: Pos }> {
             }
 
             // 判断与超平面分割线相交，子树加入搜索区间
-            if (Math.abs(pos[current.axis] - current.data.pos[current.axis]) < radius) {
+            let currentPos = current.data.pos[current.axis]
+            if (!Array.isArray(current.data.pos)) currentPos = [current.data.pos.x, current.data.pos.y][current.axis]
+
+            if (Math.abs(pos[current.axis] - currentPos) < radius) {
 
                 let next: KdTree<T> | null
-                if (pos[current.axis] < current.data.pos[current.axis]) {
+                if (pos[current.axis] < currentPos) {
                     next = current.right
                 } else {
                     next = current.left
@@ -171,8 +181,16 @@ export class KdTree<T extends { pos: Pos }> {
      * @param axis 轴(维度)
      * @returns 
      */
-    static sortByAxis<T>(datas: Array<T & { pos: Pos }>, axis: number): Array<T> {
-        return datas.sort((a, b) => a.pos[axis] - b.pos[axis])
+    static sortByAxis<T extends { pos: Pos }>(datas: Array<T>, axis: number): Array<T> {
+        return datas.sort((a, b) => {
+            let aPos = a.pos[axis]
+            let bPos = b.pos[axis]
+
+            if (!Array.isArray(a.pos)) aPos = [a.pos.x, a.pos.y][axis]
+            if (!Array.isArray(b.pos)) bPos = [b.pos.x, b.pos.y][axis]
+
+            return aPos - bPos
+        })
     }
 
 }

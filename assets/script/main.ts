@@ -1,4 +1,4 @@
-import { Agent, Simulator } from "./algorithm/RVO2";
+import Simulator from "./rvo2/Simulator"
 
 const { ccclass, property } = cc._decorator;
 
@@ -14,6 +14,9 @@ export default class Main extends cc.Component {
     @property(cc.Node)
     container_graphics: cc.Node = null
 
+
+    private agentsNodeList: Array<cc.Node> = []
+
     protected start(): void {
 
         this.initAgents()
@@ -21,29 +24,37 @@ export default class Main extends cc.Component {
     }
 
     protected update(dt: number): void {
-        Simulator.execute(dt)
+
+        Simulator.execute()
+
+        this.agentsNodeList.forEach(agentNode => {
+            const agent = Simulator.getAgent(agentNode['agentId'])
+            agentNode.setPosition(cc.v2(agent.pos.x, agent.pos.y))
+        })
     }
 
     private initAgents(): void {
 
         // red agent
-        for (let i = 0; i < 10; i++) {
+        for (let i = 0; i < 100; i++) {
 
             const randomX = Math.random() * 1920
             const randomY = Math.random() * 1080
 
             const agentNode = cc.instantiate(this.prefeb_agent)
             agentNode.setPosition(cc.v2(randomX, randomY))
-            const agent = Simulator.addAgent(agentNode)
+            const agent = Simulator.addAgent(agentNode.position)
+            this.agentsNodeList.push(agentNode)
 
             agentNode.color = cc.Color.RED
             agentNode.name = `r_${agent.id}`
+            agentNode['agentId'] = agent.id
             agentNode.getComponentInChildren(cc.Label).string = `${agent.id}`
             this.container_agents.addChild(agentNode)
         }
 
         // blue agent
-        for (let i = 0; i < 10; i++) {
+        for (let i = 0; i < 100; i++) {
 
             const randomX = Math.random() * 1920
             const randomY = Math.random() * 1080
@@ -51,9 +62,11 @@ export default class Main extends cc.Component {
             const agentNode = cc.instantiate(this.prefeb_agent)
             agentNode.setPosition(cc.v2(randomX, randomY))
             const agent = Simulator.addAgent(agentNode)
+            this.agentsNodeList.push(agentNode)
 
             agentNode.color = cc.Color.BLUE
             agentNode.name = `b_${agent.id}`
+            agentNode['agentId'] = agent.id
             agentNode.getComponentInChildren(cc.Label).string = `${agent.id}`
             this.container_agents.addChild(agentNode)
         }
@@ -68,22 +81,22 @@ export default class Main extends cc.Component {
 
         const targetPos = this.container_agents.convertToNodeSpaceAR(event.getLocation())
 
-        let filterAgents: Array<Agent> = []
+        let filterAgents: Array<cc.Node> = []
 
         switch (event.getButton()) {
 
             case cc.Event.EventMouse.BUTTON_LEFT: {
-                filterAgents = Simulator.agents.filter(agent => agent.node.name.startsWith('r_'))
+                filterAgents = this.agentsNodeList.filter(agentNode => agentNode.name.startsWith('r_'))
                 break
             }
 
             case cc.Event.EventMouse.BUTTON_RIGHT: {
-                filterAgents = Simulator.agents.filter(agent => agent.node.name.startsWith('b_'))
+                filterAgents = this.agentsNodeList.filter(agentNode => agentNode.name.startsWith('b_'))
                 break
             }
 
         }
 
-        filterAgents.forEach(agent => Simulator.setAgentTargetPos(agent.id, cc.v3(targetPos.x, targetPos.y, 0)))
+        filterAgents.forEach(agentNode => Simulator.setAgentTargetPos(agentNode['agentId'], cc.v2(targetPos.x, targetPos.y)))
     }
 }

@@ -2,6 +2,9 @@ import { KdTree } from "../dataStructure/KdTree"
 import Vector2 from "../math/Vector2"
 import Agent from "./Agent"
 
+
+type Vector2Like = { x: number, y: number }
+
 export default class Simulator {
 
     static agents: Array<Agent> = []
@@ -10,11 +13,10 @@ export default class Simulator {
 
     static deltTime: number = 0
 
-    static execute(dt: number): void {
-        if (!dt) return
+    static execute(): void {
 
         // 更新帧时间
-        this.deltTime = dt * 1000
+        this.deltTime = 7
 
         // 重新构建KdTree
         this.agentsTree = KdTree.build([].concat(this.agents))
@@ -29,8 +31,8 @@ export default class Simulator {
         this.agents.forEach(agent => agent.update())
     }
 
-    static addAgent(pos: Vector2, radius: number = 50): Agent {
-        const agent = new Agent(this.agents.length, pos, radius)
+    static addAgent<T extends Vector2Like>(pos: T, radius: number = 10): Agent {
+        const agent = new Agent(this.agents.length, new Vector2(pos.x, pos.y), radius)
         this.agents.push(agent)
         return agent
     }
@@ -39,8 +41,8 @@ export default class Simulator {
         return this.agents[id]
     }
 
-    static setAgentTargetPos(id: number, targetPos: Vector2): void {
-        this.getAgent(id).targetPos = targetPos
+    static setAgentTargetPos<T extends Vector2Like>(id: number, targetPos: T): void {
+        this.getAgent(id).targetPos = new Vector2(targetPos.x, targetPos.y)
     }
 
 }
